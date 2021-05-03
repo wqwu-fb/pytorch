@@ -217,12 +217,25 @@ class BatchNormNet(nn.Module):
         x = self.fc2(x)
         return F.softmax(x, dim=1)
 
+class UnusedParamTwoLinLayerNet(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Linear(10, 10, bias=False)
+        self.b = nn.Linear(10, 1, bias=False)
+        self.c = nn.Linear(5, 5, bias=False)
+
+    def forward(self, x):
+        a = self.a(x)
+        b = self.b(x)
+        return (a, b)
+
 class TwoLinLayerNet(nn.Module):
 
     def __init__(self):
         super().__init__()
         self.a = nn.Linear(10, 10, bias=False)
-        self.b = nn.Linear(10, 10, bias=False)
+        self.b = nn.Linear(10, 1, bias=False)
 
     def forward(self, x):
         a = self.a(x)
@@ -5383,80 +5396,46 @@ class DistributedTest:
         @require_backends_available({"gloo", "nccl"})
         @skip_if_lt_x_gpu(2)
         def test_output_unused_in_loss(self):
-            model = TwoLinLayerNet()
-            # Need copy of model to pass into 2nd DDP ctor otherwise autograd hooks
-            # on first DDP reducer will execute!
-            model_copy = copy.deepcopy(model)
+            model = UnusedParamTwoLinLayerNet()
+            local_net = copy.deepcopy(model)
             net = torch.nn.parallel.DistributedDataParallel(
                 copy.deepcopy(model).cuda(self.rank),
-                device_ids=[self.rank],
-            )
-            net_with_find_unused = torch.nn.parallel.DistributedDataParallel(
-                model_copy.cuda(self.rank),
                 device_ids=[self.rank],
                 find_unused_parameters=True,
             )
 
             inp = torch.randn(10, 10)
+            a_local_grad = None
+            a_dist_grad = None
+            for i in range(6):
+                a, b = local_net(inp)
+                a_dist, b_dist = net(inp)
+                if i < 2:
+                    # Use both params in loss computation
+                    t = a @ b
+                    t_dist = a_dist @ b_dist
+                    loss = t.sum()
+                    loss_dist = t_dist.sum()
+                else:
+                    # Model output unused in loss.
+                    loss = b.sum()
+                    loss_dist = b_dist.sum()
+                loss.backward()
+                loss_dist.backward()
+                if i == 1:
+                    a_local_grad = local_net.a.weight.grad
+                    a_dist_grad = net.module.a.weight.grad
+                    self.assertEqual(a_local_grad, a_dist_grad)
+                elif i >= 2:
+                    # parameter "a" of both models should be the same and not change
+                    self.assertEqual(net.module.a.weight.grad, a_dist_grad)
+                    self.assertEqual(local_net.a.weight.grad, a_local_grad)
 
-            for ddp in [net, net_with_find_unused]:
-                for i in range(2):
-                    if i == 0:
-                        a, b = ddp(inp)
-                        loss = b.sum()
-                        loss.backward()
-                    else:
-                        try:
-                            a, b = ddp(inp)
-                            loss = b.sum()
-                            loss.backward()
-                        except RuntimeError as e:
-                            msg = str(e)
-                            unused_index = 0
-                            unused_index_substr = (
-                                f"Parameter indices which did not receive grad for rank {self.rank}: {unused_index}"
-                            )
-                            if ddp == net:
-                                expected_strs = [
-                                    ddp_prev_reduction_unfinished_str,
-                                    ddp_recommend_find_unused_params_str,
-                                    ddp_outputs_not_used_in_loss_str,
-                                    unused_index_substr,
-                                ]
-                                unexpected_strs = [
-                                    ddp_find_unused_params_enabled_str,
-                                ]
-                            elif ddp == net_with_find_unused:
-                                expected_strs = [
-                                    ddp_prev_reduction_unfinished_str,
-                                    ddp_outputs_not_used_in_loss_str,
-                                    ddp_find_unused_params_enabled_str,
-                                    unused_index_substr,
-                                ]
-                                unexpected_strs = [
-                                    ddp_recommend_find_unused_params_str,
-                                ]
-                            # In debug mode, should show parameters that weren't reduced.
-                            # Without debug mode, should show suggestion to use debug mode.
-                            if dist._get_debug_mode() == dist._DistributedDebugLevel.OFF:
-                                expected_strs.append(ddp_suggest_debug_mode_str)
-                            else:
-                                unreduced_params = ", ".join(['a.weight'])
-                                expected_strs.append(
-                                    f"did not receive grad for rank {self.rank}: {unreduced_params}"
-                                )
-                            for s in expected_strs:
-                                self.assertTrue(
-                                    s in msg,
-                                    f"Expected {s} to be in {msg}"
-                                )
-                            for s in unexpected_strs:
-                                self.assertFalse(
-                                    s in msg,
-                                    f"Expected {s} not to be in {msg}"
-                                )
-                        else:
-                            self.assertFalse(True, "DDP error not raised")
+                # Verify grads are the same
+                for (local_param, dist_param) in zip(local_net.parameters(), net.parameters()):
+                    local_grad = local_param.grad
+                    dist_grad = dist_param.grad
+                    self.assertEqual(local_grad, dist_grad)
 
             dist.barrier()
 
@@ -5848,7 +5827,7 @@ class DistributedTest:
             # but can be (nested) tuple, list, dict, etc.
             rank = self.rank
             torch.cuda.set_device(rank)
-
+            # TODO: test with find_unused_parameters and outputs unused in loss.
             class NestedOutputModule(torch.nn.Module):
                 def __init__(self):
                     super().__init__()

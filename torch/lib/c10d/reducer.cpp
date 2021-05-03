@@ -464,7 +464,7 @@ void Reducer::delay_all_reduce() {
   // prepare to set unused_parameters_, if it is static graph,
   // unused_parameters_ will not change after 1st iteration.
   unused_parameters_.clear();
-
+  per_iteration_param_outputs_unused_.clear();
   // copy all gradients to buckets
   for (size_t replica_index = 0; replica_index < replicas_.size();
        replica_index++) {
@@ -510,6 +510,9 @@ void Reducer::autograd_hook(VariableIndex index) {
     return;
   }
 
+  if (per_iteration_param_outputs_unused_.find(index.variable_index) != per_iteration_param_outputs_unused_.end()) {
+    return;
+  }
   // See Note [Skip allreducing local_used_maps_dev]
   if ((!static_graph_ && find_unused_parameters_) || (static_graph_ && num_iterations_ == 1)) {
     // Since it gets here, this param has been used for this iteration. We want
@@ -1173,6 +1176,7 @@ void Reducer::prepare_for_backward(
   // and we don't have to search the autograd graph for presence of these hooks.
   if (!static_graph_ && find_unused_parameters_) {
     unused_parameters_.clear();
+    per_iteration_param_outputs_unused_.clear();
     search_unused_parameters(outputs);
   }
 }
@@ -1261,6 +1265,7 @@ void Reducer::finalize_bucket_dense(Bucket& bucket) {
         // local_used_maps_reduced_ is true.
         global_unused =
             local_used_maps_[replica_index][variable_index].item<int>() == 0;
+
         if (global_unused && !local_used_maps_reduced_) {
           // Wait for local_used_maps reduction to complete.
           local_used_work_->wait();

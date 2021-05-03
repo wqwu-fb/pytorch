@@ -112,14 +112,32 @@ class _DDPUnevenInputsConfig(NamedTuple):
 # is completed.
 class _DDPSink(Function):
     @staticmethod
-    def forward(ctx, reducer, *inputs):
+    def forward(ctx, reducer, state_dict, *inputs):
         ctx.reducer = reducer
+        ctx.state_dict = state_dict
+        ctx.inputs = inputs
         return inputs
 
     @staticmethod
     def backward(ctx, *grad_outputs):
-        Variable._execution_engine.queue_callback(ctx.reducer._delay_all_reduce)
-        return (None, *grad_outputs)
+        state_dict = ctx.state_dict
+        if state_dict['grad_enabled_in_fwd_pass'] and state_dict['require_backward_grad_sync']:
+            if state_dict['find_unused_parameters']:
+                used_inputs = []
+                outputs_unused_indices = []
+                for idx, inp in enumerate(ctx.inputs):
+                    incoming_grad_for_output = grad_outputs[idx]
+                    if incoming_grad_for_output.sum().item() != 0:
+                        used_inputs.append(inp)
+                    else:
+                        outputs_unused_indices.append(idx)
+                ctx.reducer.prepare_for_backward(used_inputs)
+                ctx.reducer.set_per_iteration_param_outputs_unused(outputs_unused_indices)
+            else:
+                ctx.reducer.prepare_for_backward([])
+        if ctx.state_dict['static_graph']:
+            Variable._execution_engine.queue_callback(ctx.reducer._delay_all_reduce)
+        return (None, None, *grad_outputs)
 
 class DistributedDataParallel(Module):
     r"""Implements distributed data parallelism that is based on
@@ -780,7 +798,8 @@ class DistributedDataParallel(Module):
             else:
                 output = self.module(*inputs, **kwargs)
 
-            if torch.is_grad_enabled() and self.require_backward_grad_sync:
+            grad_enabled = torch.is_grad_enabled()
+            if grad_enabled and self.require_backward_grad_sync:
                 self.require_forward_param_sync = True
                 # We'll return the output object verbatim since it is a freeform
                 # object. We need to find any tensors in this object, though,
@@ -800,9 +819,16 @@ class DistributedDataParallel(Module):
         if self.static_graph and self.num_iterations == 1:
             # Need to grab list of tensors from user output in order to pass
             # to custom autograd function.
+            state_dict = {
+                'static_graph': self.static_graph,
+                'grad_enabled_in_fwd_pass': grad_enabled,
+                'require_backward_grad_sync': self.require_backward_grad_sync,
+                'find_unused_parameters': self.find_unused_parameters,
+            }
             output_tensor_list, treespec = tree_flatten(output)
             passthrough_tensor_list = _DDPSink.apply(
                 self.reducer,
+                state_dict,
                 *output_tensor_list
             )
             # Reconstruct output data structure.
