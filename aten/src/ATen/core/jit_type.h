@@ -1540,7 +1540,8 @@ TORCH_API c10::optional<TypePtr> unifyTypes(
 
 TORCH_API c10::optional<TypePtr> unifyTypeList(
     at::ArrayRef<TypePtr> elements,
-    std::ostream& why_not);
+    std::ostream& why_not,
+    bool default_to_any=false);
 
 namespace detail {
 template <typename T>
