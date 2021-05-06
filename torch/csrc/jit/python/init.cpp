@@ -86,6 +86,7 @@
 #include <torch/csrc/jit/runtime/jit_exception.h>
 #include <torch/csrc/jit/runtime/operator.h>
 #include <torch/csrc/jit/runtime/print_handler.h>
+#include <torch/csrc/jit/runtime/script_profile.h>
 #include <torch/csrc/jit/runtime/static/init.h>
 #include <torch/csrc/jit/serialization/export.h>
 #include <torch/csrc/jit/serialization/import.h>
@@ -1381,6 +1382,19 @@ void initJITBindings(PyObject* module) {
             return self == other;
           })
       .def(py::hash(py::self));
+
+  py::class_<InstructionStats>(m, "InstructionStats")
+      .def_property_readonly(
+          "count", [](const InstructionStats& self) { return self.count; })
+      .def_property_readonly("durationNs", [](const InstructionStats& self) {
+        return self.duration.count();
+      });
+
+  py::class_<ScriptProfile>(m, "_ScriptProfile")
+      .def(py::init<>())
+      .def("enable", &ScriptProfile::enable)
+      .def("disable", &ScriptProfile::disable)
+      .def("_dump_stats", &ScriptProfile::dumpStats);
 
   initPythonCustomClassBindings(module);
   initPythonIRBindings(module);
