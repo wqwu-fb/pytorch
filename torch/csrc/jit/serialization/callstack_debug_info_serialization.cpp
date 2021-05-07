@@ -125,7 +125,10 @@ InlinedCallStackPtr InlinedCallStackDeserializer::deserialize(
       "Source range tag must exist in deserialized source range map."
       " Not found source range tag:",
       source_range_tag);
-  auto source_range = source_range_it->second;
+  SourceRange source_range;
+  if (source_range_tag != -1) {
+    source_range = source_range_it->second;
+  }
   auto callee = deserialize(tup_elems[2], source_range_map, cu);
   InlinedCallStackPtr cs_ptr;
   if (callee) {
@@ -162,6 +165,21 @@ c10::optional<ModuleInstanceInfo> InlinedCallStackDeserializer::
   // type_name might be empty string ""
   // In that case type_ptr should be just nullptr
   auto type_ptr = cu->get_class(type_name);
+  if (!type_ptr) {
+    // We may have lost type information. For example in lowered backends
+    // original class type has no relevance.
+    // However, to correlate ops to their original modules
+    // we saved both type name and instance name.
+    // In such cases, when module is absorbed by lowered backend
+    // we augment instance name with type name instead of losing it.
+    auto last_dot_position = type_name.find_last_of('.');
+    size_t substring_pos{0};
+    if (last_dot_position != std::string::npos) {
+      substring_pos = last_dot_position + 1;
+    }
+    type_name = type_name.substr(substring_pos);
+    instance_name = instance_name + "(" + type_name + ")";
+  }
   cached_module_instance_info_[tup] =
       ModuleInstanceInfo(type_ptr, instance_name);
   return cached_module_instance_info_[tup];
