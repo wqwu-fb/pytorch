@@ -23,7 +23,7 @@ class Function {
   bool append_operator(
       const std::string& name,
       const std::string& overload_name,
-      int64_t model_version);
+      const c10::optional<int>& num_specified_args);
   void append_constant(const c10::IValue& constant);
   void append_type(const c10::TypePtr& type);
 
