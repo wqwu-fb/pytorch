@@ -195,6 +195,9 @@ TEST(BackendTestDebugInfo, TestCompiler) {
   const std::string error_pattern(
       ".*(self.__backend.execute).*(return x \\+ h).*");
   ASSERT_THROWS_WITH_REGEX_MESSAGE(mlm.forward(inputs), error_pattern);
+  ASSERT_THROWS_WITH_MESSAGE(
+      mlm.forward(inputs),
+      "Module hierarchy:top(backend_with_compiler_demoLoweredModule).aten::add");
 }
 
 TEST(BackendTestDebugInfo, TestExceptionStackForCompilerWithModuleHierarchy) {
@@ -262,7 +265,7 @@ TEST(BackendTestDebugInfo, TestExceptionStackForCompilerWithModuleHierarchy) {
   ASSERT_THROWS_WITH_REGEX_MESSAGE(mlm.forward(inputs), error_pattern);
   ASSERT_THROWS_WITH_MESSAGE(
       mlm.forward(inputs),
-      "Module hierarchy:top(backend_with_compiler_demoLoweredModule).A0(A)");
+      "Module hierarchy:top(backend_with_compiler_demoLoweredModule).A0(A).aten::add");
 }
 
 TEST(
@@ -338,7 +341,7 @@ TEST(
   ASSERT_THROWS_WITH_REGEX_MESSAGE(mlm.forward(inputs), error_pattern);
   ASSERT_THROWS_WITH_MESSAGE(
       mlm.forward(inputs),
-      "Module hierarchy:top(backend_with_compiler_demoLoweredModule).B0(B).A0(A)");
+      "Module hierarchy:top(backend_with_compiler_demoLoweredModule).B0(B).A0(A).aten::add");
 }
 
 TEST(BackendTestDebugInfo, TestExceptionStackForCompilerWithLoweredSubModule) {
@@ -402,7 +405,7 @@ TEST(BackendTestDebugInfo, TestExceptionStackForCompilerWithLoweredSubModule) {
   ASSERT_THROWS_WITH_REGEX_MESSAGE(c_loaded.forward(inputs), error_pattern);
   ASSERT_THROWS_WITH_MESSAGE(
       c_loaded.forward(inputs),
-      "Module hierarchy:top(C).A0(backend_with_compiler_demoLoweredModule)");
+      "Module hierarchy:top(C).A0(backend_with_compiler_demoLoweredModule).aten::add");
 }
 
 TEST(
@@ -506,7 +509,7 @@ TEST(
   ASSERT_THROWS_WITH_REGEX_MESSAGE(c_loaded.forward(inputs), error_pattern);
   ASSERT_THROWS_WITH_MESSAGE(
       c_loaded.forward(inputs),
-      "Module hierarchy:top(C).A0(backend_with_compiler_demoLoweredModule).AA0(AA)");
+      "Module hierarchy:top(C).A0(backend_with_compiler_demoLoweredModule).AA0(AA).aten::add");
 }
 
 } // namespace jit
