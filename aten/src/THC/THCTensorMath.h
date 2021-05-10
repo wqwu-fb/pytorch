@@ -1,9 +1,10 @@
 #ifndef TH_CUDA_TENSOR_MATH_INC
 #define TH_CUDA_TENSOR_MATH_INC
 
-#include <THC/THCTensor.h>
 #include <THC/THCGeneral.h>
+#include <THC/THCTensor.h>
 
+// clang-format off
 #include <THC/generic/THCTensorMath.h>
 #include <THC/THCGenerateAllTypes.h>
 
@@ -42,5 +43,6 @@
 
 #include <THC/generic/THCTensorScatterGather.h>
 #include <THC/THCGenerateBoolType.h>
+// clang-format on
 
 #endif

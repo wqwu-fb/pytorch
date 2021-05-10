@@ -1,9 +1,9 @@
-#include <THC/THCApply.cuh>
 #include <TH/THHalf.h>
-#include <THC/THCNumerics.cuh>
 #include <THC/THCTensorCopy.hpp>
-#include <type_traits>
 #include <c10/util/BFloat16.h>
+#include <THC/THCApply.cuh>
+#include <THC/THCNumerics.cuh>
+#include <type_traits>
 
 // Copy operator for the pointwise apply kernel
 template <typename T>
@@ -18,19 +18,22 @@ struct CopyOp {
 };
 
 template <>
-struct CopyOp <bool> {
+struct CopyOp<bool> {
   __device__ __forceinline__ void operator()(bool* dst, bool* src) {
-      *dst = ScalarConvert<bool, bool>::to(*src);
+    *dst = ScalarConvert<bool, bool>::to(*src);
   }
 };
 
 template <>
-struct CopyOp <at::BFloat16> {
-  __device__ __forceinline__ void operator()(at::BFloat16* dst, at::BFloat16* src) {
-      *dst = ScalarConvert<at::BFloat16, at::BFloat16>::to(*src);
+struct CopyOp<at::BFloat16> {
+  __device__ __forceinline__ void operator()(
+      at::BFloat16* dst,
+      at::BFloat16* src) {
+    *dst = ScalarConvert<at::BFloat16, at::BFloat16>::to(*src);
   }
 };
 
+// clang-format off
 #include <THC/generic/THCTensorCopy.cu>
 #include <THC/THCGenerateAllTypes.h>
 
@@ -42,3 +45,4 @@ struct CopyOp <at::BFloat16> {
 
 #include <THC/generic/THCTensorCopy.cu>
 #include <THC/THCGenerateBFloat16Type.h>
+// clang-format on

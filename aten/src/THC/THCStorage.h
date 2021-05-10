@@ -4,8 +4,9 @@
 #include <TH/THStorageFunctions.h>
 #include <THC/THCGeneral.h>
 
-#define THCStorage_(NAME) TH_CONCAT_4(TH,CReal,Storage_,NAME)
+#define THCStorage_(NAME) TH_CONCAT_4(TH, CReal, Storage_, NAME)
 
+// clang-format off
 #include <THC/generic/THCStorage.h>
 #include <THC/THCGenerateAllTypes.h>
 
@@ -17,5 +18,6 @@
 
 #include <THC/generic/THCStorage.h>
 #include <THC/THCGenerateBFloat16Type.h>
+// clang-format on
 
 #endif

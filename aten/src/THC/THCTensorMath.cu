@@ -1,11 +1,10 @@
-#include <THC/THCTensorMath.h>
 #include <THC/THCGeneral.h>
+#include <THC/THCTensor.hpp>
 #include <THC/THCTensorCopy.h>
+#include <THC/THCTensorMath.h>
 #include <THC/THCApply.cuh>
 #include <THC/THCNumerics.cuh>
 #include <THC/THCThrustAllocator.cuh>
-#include <THC/THCTensor.hpp>
-
 
 #include <thrust/copy.h>
 #include <thrust/count.h>
@@ -13,8 +12,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
-#include <thrust/sequence.h>
 #include <thrust/iterator/transform_iterator.h>
+#include <thrust/sequence.h>
 #include <thrust/transform.h>
 #if CUDA_VERSION >= 7000 || defined __HIP_PLATFORM_HCC__
 #include <thrust/system/cuda/execution_policy.h>
@@ -24,11 +23,14 @@
 template <typename T>
 struct TensorFillOp {
   TensorFillOp(T v) : val(v) {}
-  __device__ __forceinline__ void operator()(T* v) { *v = val; }
+  __device__ __forceinline__ void operator()(T* v) {
+    *v = val;
+  }
 
   const T val;
 };
 
+// clang-format off
 #include <THC/generic/THCTensorMath.cu>
 #include <THC/THCGenerateAllTypes.h>
 
@@ -37,3 +39,4 @@ struct TensorFillOp {
 
 #include <THC/generic/THCTensorMath.cu>
 #include <THC/THCGenerateBFloat16Type.h>
+// clang-format on

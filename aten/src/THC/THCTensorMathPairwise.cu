@@ -1,11 +1,11 @@
-#include <THC/THCTensorMath.h>
-#include <THC/THCGeneral.h>
 #include <TH/THHalf.h>
+#include <THC/THCGeneral.h>
+#include <THC/THCTensor.hpp>
 #include <THC/THCTensorCopy.h>
+#include <THC/THCTensorMath.h>
 #include <THC/THCApply.cuh>
 #include <THC/THCNumerics.cuh>
 #include <THC/THCTensorMathCompareT.cuh>
-#include <THC/THCTensor.hpp>
 
 template <typename T>
 struct TensorMulConstantOp {
@@ -21,5 +21,7 @@ struct TensorMulConstantOp {
   const T val;
 };
 
+// clang-format off
 #include <THC/generic/THCTensorMathPairwise.cu>
 #include <THC/THCGenerateBoolType.h>
+// clang-format on

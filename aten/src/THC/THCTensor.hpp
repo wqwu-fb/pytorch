@@ -3,13 +3,13 @@
 // STOP!!! Thinking of including this header directly?  Please
 // read Note [TH abstraction violation]
 
-#include <THC/THCTensor.h>
 #include <TH/THTensor.hpp>
-#include <THC/THCStorage.hpp>
 #include <THC/THCGeneral.hpp>
+#include <THC/THCStorage.hpp>
+#include <THC/THCTensor.h>
 
-#include <atomic>
 #include <ATen/ATen.h>
+#include <atomic>
 
 // See [NOTE: nDimension vs nDimensionLegacyNoScalars vs nDimensionLegacyAll]
 TORCH_CUDA_CU_API int THCTensor_nDimension(
@@ -117,6 +117,7 @@ TORCH_CUDA_CU_API bool THCTensor_maybeOverlappingIndices(
     THCState* state,
     const THCTensor* t);
 
+// clang-format off
 #include <THC/generic/THCTensor.hpp>
 #include <THC/THCGenerateAllTypes.h>
 
@@ -128,3 +129,4 @@ TORCH_CUDA_CU_API bool THCTensor_maybeOverlappingIndices(
 
 #include <THC/generic/THCTensor.hpp>
 #include <THC/THCGenerateBFloat16Type.h>
+// clang-format on

@@ -1,10 +1,11 @@
-#include <THC/THCStorage.hpp>
 #include <THC/THCGeneral.h>
+#include <THC/THCStorage.hpp>
 
 #include <TH/THHalf.h>
 
 #include <new>
 
+// clang-format off
 #include <THC/generic/THCStorage.cpp>
 #include <THC/THCGenerateAllTypes.h>
 
@@ -16,6 +17,7 @@
 
 #include <THC/generic/THCStorage.cpp>
 #include <THC/THCGenerateBFloat16Type.h>
+// clang-format on
 
 #include <c10/util/intrusive_ptr.h>
 
@@ -32,14 +34,16 @@ void THCStorage_resizeBytes(
     THError("Trying to resize storage that is not resizable");
 
   if (size_bytes == 0) {
-    self->set_data_ptr_noswap(at::DataPtr(nullptr, at::Device(at::DeviceType::CUDA, device)));
+    self->set_data_ptr_noswap(
+        at::DataPtr(nullptr, at::Device(at::DeviceType::CUDA, device)));
     self->set_nbytes(0);
   } else {
     at::DataPtr data = self->allocator()->allocate(size_bytes);
 
     if (self->data_ptr()) {
       // Enable p2p access when the memcpy is across devices
-      THCState_getPeerToPeerAccess(state, device, THCStorage_getDevice(state, self));
+      THCState_getPeerToPeerAccess(
+          state, device, THCStorage_getDevice(state, self));
 
       THCudaCheck(cudaMemcpyAsync(
           data.get(),
