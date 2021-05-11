@@ -240,6 +240,7 @@ _(aten, conj) \
 _(aten, conj_physical) \
 _(aten, conj_physical_) \
 _(aten, resolve_conj) \
+_(aten, resolve_neg) \
 _(aten, complex) \
 _(aten, copysign) \
 _(aten, polar) \

@@ -360,13 +360,16 @@
 
 - name: complex(Tensor real, Tensor imag) -> Tensor
   real: at::real(grad)
-  imag: at::imag(grad.resolve_conj())
+  imag: at::imag(grad)
 
 - name: polar(Tensor abs, Tensor angle) -> Tensor
   abs, angle: polar_backward(grad, result)
 
 - name: _conj(Tensor(a) self) -> Tensor(a)
   self: grad.conj()
+
+- name: _neg_view(Tensor(a) self) -> Tensor(a)
+  self: grad.neg()
 
 - name: _conj_physical(Tensor self) -> Tensor
   self: grad.conj_physical()
