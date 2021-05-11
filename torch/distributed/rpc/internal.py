@@ -83,6 +83,26 @@ class _InternalRPCPickler:
         torch.jit.save(script_module, f)
         return (_InternalRPCPickler._script_module_receiver, (f.getvalue(),))
 
+
+    @classmethod
+    def _recursive_script_module_receiver(cls, recursive_script_module_serialized):
+        """
+        Given a serialized representation of a RecursiveScriptModule created with torch.jit.save,
+        loads and returns the RecursiveScriptModule.
+        """
+        f = io.BytesIO(script_module_serialized)
+        m = torch.jit.load(f)
+        return m
+
+    def _recursive_script_module_reducer(self, recursive_script_module):
+        """
+        Serializes a RecursiveScriptModule.
+        """
+        # FIXME: RRef should be pickled separately.
+        f = io.BytesIO()
+        torch.jit.save(recursive_script_module, f)
+        return (_InternalRPCPickler._recursive_script_module_receiver, (f.getvalue(),))
+
     @classmethod
     def _remote_module_receiver(
         cls,
@@ -157,10 +177,10 @@ class _InternalRPCPickler:
         p.dispatch_table[dist.rpc.RRef] = self._rref_reducer  # type: ignore[index]
         # Ignore type error because dispatch_table is defined in third-party package
         p.dispatch_table[dist.nn.RemoteModule] = self._remote_module_reducer  # type: ignore[attr-defined, index]
-        # Add dispatch pickling for ScriptModule if needed.
-        if isinstance(obj, torch.jit.ScriptModule):
-            # Ignore type error because dispatch_table is defined in third-party package
-            p.dispatch_table[obj.__class__] = self._script_module_reducer  # type: ignore[index]
+        # Ignore type error because dispatch_table is defined in third-party package
+        p.dispatch_table[torch.jit.ScriptModule] = self._script_module_reducer  # type: ignore[index]
+        # Ignore type error because dispatch_table is defined in third-party package
+        p.dispatch_table[torch.jit.RecursiveScriptModule] = self._recursive_script_module_reducer  # type: ignore[index]
 
         # save _thread_local_tensor_tables.send_tables if it is in nested call
         global _thread_local_tensor_tables
