@@ -3,17 +3,31 @@
 namespace at {
 namespace autocast {
 
-namespace {
-  bool is_autocast_eligible(const Tensor& tensor) {
-    return (tensor.is_cuda() || tensor.is_xla()) && tensor.is_floating_point();
-  }
-} // namespace
-
 TORCH_API bool is_enabled();
 TORCH_API void set_enabled(bool enabled);
 TORCH_API void clear_cache();
 TORCH_API int increment_nesting();
 TORCH_API int decrement_nesting();
+TORCH_API bool is_cpu_enabled();
+TORCH_API void set_cpu_enabled(bool enabled);
+TORCH_API at::ScalarType get_autocast_cpu_dtype();
+TORCH_API void set_autocast_cpu_dtype(at::ScalarType dtype);
+
+inline bool is_cuda_enabled() {
+  return is_enabled();
+}
+
+inline at::ScalarType get_autocast_dtype(){
+  return is_cuda_enabled() ? at::kHalf : get_autocast_cpu_dtype();
+}
+
+namespace {
+  bool is_autocast_eligible(const Tensor& tensor) {
+    return is_cuda_enabled()
+        ? (tensor.is_cuda() || tensor.is_xla()) && tensor.is_floating_point()
+        : (tensor.is_cpu() || tensor.is_mkldnn()) && tensor.is_floating_point();
+  }
+} // namespace
 
 /********************************************************************
 Logic to extract the promote type from any Tensor or TensorList args.
@@ -27,14 +41,15 @@ inline at::ScalarType prioritize(at::ScalarType current, const Tensor& nextArg) 
     AT_ERROR("promote type is double in at::autocast::prioritize");
     return current;
   }
+  at::ScalarType lower_precision_fp = get_autocast_dtype();
   if (is_autocast_eligible(nextArg)) {
     auto next = nextArg.scalar_type();
     if (next == at::kDouble) {
       return current; // ignores double tensors
     } else if (current == at::kFloat || next == at::kFloat) {
-      return at::kFloat; // prioritizes float over half
-    } else if (current == at::kHalf && next == at::kHalf) {
-      return at::kHalf;
+      return at::kFloat; // prioritizes float over lower_precision_fp
+    } else if (current == lower_precision_fp && next == lower_precision_fp) {
+      return lower_precision_fp;
     } else {
       AT_ERROR("Unexpected floating ScalarType in at::autocast::prioritize");
       return current;
@@ -64,7 +79,7 @@ inline at::ScalarType promote_type(at::ScalarType current) {
   return current;
 }
 
-// Unpack args and determine if incoming float16 tensors need to be promoted to float32.
+// Unpack args and determine if incoming lower_precision_fp tensors need to be promoted to float32.
 // Non-Tensor arguments are ignored.
 template<typename Arg0, typename... Args>
 inline at::ScalarType promote_type(at::ScalarType current, Arg0 arg0, Args... args) {
@@ -136,6 +151,30 @@ inline bool firstarg_is_eligible(const Tensor& arg, Args... args) {
 template<typename... Args>
 inline at::ScalarType type_from_firstarg(at::ScalarType to_type, const Tensor& arg, Args... args) {
   return (is_eligible(arg) ? to_type : arg.scalar_type());
+}
+
+inline DispatchKey get_autocast_dispatch_key_from_device_type(DeviceType device_type){
+  switch (device_type) {
+    case DeviceType::CUDA:
+      return DispatchKey::Autocast;
+    case DeviceType::CPU:
+      return DispatchKey::AutocastCPU;
+    default:
+      throw std::runtime_error(
+          "unknown device type for autocast in get_autocast_dispatch_key_from_device_type");
+  }
+}
+
+inline at::ScalarType get_lower_precision_fp_from_device_type(DeviceType device_type){
+  switch (device_type) {
+    case DeviceType::CUDA:
+      return at::kHalf;
+    case DeviceType::CPU:
+      return get_autocast_cpu_dtype();
+    default:
+      throw std::runtime_error(
+          "unknown device type for autocast in get_lower_precision_fp_from_device_type");
+  }
 }
 
 } // namespace autocast
