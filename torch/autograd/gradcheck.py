@@ -458,7 +458,7 @@ def _get_analytical_vJu(inputs, outputs, nondet_tol, check_grad_dtypes, all_v, a
             # the error checking logic from slow mode
             vJ = vJ.T.squeeze(0)
             if vJ.is_complex():  # C -> R
-                tv = torch.view_as_real(vJ)
+                tv = torch.view_as_real(vJ.resolve_conj())
                 tr = tv.select(-1, 0)
                 ti = tv.select(-1, 1)
                 jacobian_scalars.append(tr.dot(u[0]) + 1j * ti.dot(u[1]))
@@ -804,7 +804,14 @@ def _real_and_imag(fn, sample_outputs):
             outs = _as_tuple(fn(*inputs))
             return tuple(fn_to_apply(o) if o.is_complex() else o for o in outs)
         return wrapped_fn
-    return apply_to_c_outs(fn, torch.real), apply_to_c_outs(fn, torch.imag)
+
+    # TODO(@anjali411): remove this workaround once neg bit is added.
+    def torch_imag(x):
+        if x.is_conj():
+            return x.resolve_conj().imag
+        else:
+            return x.imag
+    return apply_to_c_outs(fn, torch.real), apply_to_c_outs(fn, torch_imag)
 
 
 def _gradcheck_real_imag(gradcheck_fn, func, func_out, tupled_inputs, outputs, eps, rtol,

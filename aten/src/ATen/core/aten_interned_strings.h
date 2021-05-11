@@ -237,6 +237,9 @@ _(aten, coalesce) \
 _(aten, combinations) \
 _(aten, _conj) \
 _(aten, conj) \
+_(aten, conj_physical) \
+_(aten, conj_physical_) \
+_(aten, resolve_conj) \
 _(aten, complex) \
 _(aten, copysign) \
 _(aten, polar) \
@@ -759,6 +762,7 @@ _(aten, zeros_like) \
 _(aten, real) \
 _(aten, imag) \
 _(aten, view_as_real) \
+_(aten, _view_as_real_physical) \
 _(aten, view_as_complex) \
 /* nothing */
 

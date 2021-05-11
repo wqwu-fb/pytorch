@@ -2168,15 +2168,17 @@ Example::
     tensor([(0.0000+1.0000j), (-1.4142-1.4142j)], dtype=torch.complex128)
 """)
 
-add_docstr(torch.conj,
+add_docstr(torch.conj_physical,
            r"""
-conj(input, *, out=None) -> Tensor
+conj_physical(input, *, out=None) -> Tensor
 
-Computes the element-wise conjugate of the given :attr:`input` tensor. If :attr:`input` has a non-complex dtype,
-this function just returns :attr:`input`.
+Computes the element-wise conjugate of the given :attr:`input` tensor. If :attr:`input` has a non-complex dtype, this function just returns :attr:`input`.
 
-.. warning:: In the future, :func:`torch.conj` may return a non-writeable view for an :attr:`input` of
-             non-complex dtype. It's recommended that programs not modify the tensor returned by :func:`torch.conj`
+.. note::
+   This performs the conjugate operation regardless of the fact conjugate bit is set or not.
+
+.. warning:: In the future, :func:`torch.conj_physical` may return a non-writeable view for an :attr:`input` of
+             non-complex dtype. It's recommended that programs not modify the tensor returned by :func:`torch.conj_physical`
              when :attr:`input` is of non-complex dtype to be compatible with this change.
 
 .. math::
@@ -2190,9 +2192,62 @@ Keyword args:
 
 Example::
 
-    >>> torch.conj(torch.tensor([-1 + 1j, -2 + 2j, 3 - 3j]))
+    >>> torch.conj_physical(torch.tensor([-1 + 1j, -2 + 2j, 3 - 3j]))
     tensor([-1 - 1j, -2 - 2j, 3 + 3j])
 """.format(**common_args))
+
+add_docstr(torch.conj,
+           r"""
+conj(input) -> Tensor
+
+Returns a view of :attr:`input` with a flipped conjugate bit. If :attr:`input` has a non-complex dtype,
+this function just returns :attr:`input`.
+
+.. note::
+    :func:`torch.conj` performs a lazy conjugation, but the actual conjugated tensor can be materialized
+    at any time using :func:`torch.resolve_conj`.
+
+.. warning:: In the future, :func:`torch.conj` may return a non-writeable view for an :attr:`input` of
+             non-complex dtype. It's recommended that programs not modify the tensor returned by :func:`torch.conj_physical`
+             when :attr:`input` is of non-complex dtype to be compatible with this change.
+
+Args:
+    {input}
+
+Example::
+
+    >>> x = torch.tensor([-1 + 1j, -2 + 2j, 3 - 3j])
+    >>> x.is_conj()
+    False
+    >>> y = torch.conj(x)
+    >>> y.is_conj()
+    True
+
+""")
+
+add_docstr(torch.resolve_conj,
+           r"""
+resolve_conj(input) -> Tensor
+
+Returns a new tensor with materialized conjugation if :attr:`input`'s conjugate bit is set to `True`,
+else returns :attr:`input`. The output tensor will always have its conjugate bit set to `False`.
+
+Args:
+    {input}
+
+Example::
+
+    >>> x = torch.tensor([-1 + 1j, -2 + 2j, 3 - 3j])
+    >>> y = x.conj()
+    >>> y.is_conj()
+    True
+    >>> z = y.resolve_conj()
+    >>> z
+    tensor([-1 - 1j, -2 - 2j, 3 + 3j])
+    >>> z.is_conj()
+    False
+
+""")
 
 add_docstr(torch.copysign,
            r"""
@@ -4156,6 +4211,15 @@ is_complex(input) -> (bool)
 
 Returns True if the data type of :attr:`input` is a complex data type i.e.,
 one of ``torch.complex64``, and ``torch.complex128``.
+
+Args:
+    {input}
+""".format(**common_args))
+
+add_docstr(torch.is_conj, r"""
+is_conj(input) -> (bool)
+
+Returns True if the :attr:`input` is a conjugated tensor, i.e. its conjugate bit is set to `True`.
 
 Args:
     {input}
